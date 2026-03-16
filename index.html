@@ -7,11 +7,16 @@
     <style>
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #0a0a0a; overflow: hidden;
+            background-color: #050505; overflow: hidden;
             font-family: 'Courier New', Courier, monospace; color: #00ffcc;
             user-select: none;
         }
-        canvas { display: block; }
+        canvas { 
+            display: block; 
+            position: relative;
+            z-index: 1;
+            background: transparent;
+        }
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; display: flex; flex-direction: column;
@@ -56,9 +61,72 @@
         .bsod p { margin: 10px 0; font-size: 1.1rem; line-height: 1.5; text-shadow: none; }
         .bsod-btn { background: transparent; color: #fff; border: 2px solid #fff; margin-top: 30px; font-family: inherit; font-size: 1.2rem; }
         .bsod-btn:hover { background: #fff; color: #0000aa; box-shadow: none; }
+
+        /* Hacked Aesthetic for Start Modal */
+        #start-modal {
+            background: rgba(0, 10, 0, 0.85); /* Deep dark green tint */
+            border: 2px solid #00ff00;
+            box-shadow: inset 0 0 50px rgba(0,255,0,0.2);
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .hacker-bg-text {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 200%;
+            color: rgba(0, 255, 0, 0.15);
+            font-size: 14px;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+            line-height: 1.2;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            animation: panBg 120s linear infinite;
+        }
+
+        @keyframes panBg {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50%); }
+        }
+
+        .glitch {
+            animation: glitch-anim 0.2s infinite;
+            text-transform: uppercase;
+            font-weight: bold;
+            text-shadow: 2px 2px #ff0000, -2px -2px #0000ff;
+        }
+
+        @keyframes glitch-anim {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+
+        .terminal-btn {
+            background: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 15px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .terminal-btn:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 15px #00ff00;
+        }
     </style>
 </head>
 <body>
+
+    <!-- Moved Hacker BG outside the modal so it's always visible -->
+    <div class="hacker-bg-text" id="hacker-bg"></div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -76,13 +144,30 @@
     </div>
 
     <div id="start-modal" class="modal">
-        <h1 style="color: #ff3333;">YOU HAVE BEEN HACKED</h1>
-        <p style="text-align:center">The system is infested with software bugs.<br>Select your device to begin.</p>
-        <div style="display: flex; gap: 15px; margin-top: 20px;">
-            <button onclick="startGame('laptop')">💻 LAPTOP</button>
-            <button onclick="startGame('ipad')">📱 TABLET</button>
-            <button onclick="startGame('phone')">📱 PHONE</button>
+        <h1 class="glitch" style="color: #ff3333; font-size: 3rem; margin-bottom: 0;">YOU HAVE BEEN HACKED</h1>
+        <p style="color: #00ff00; margin-top: 5px; text-shadow: 0 0 5px #00ff00;">> ROOT ACCESS GRANTED TO: UNKNOWN_USER</p>
+        
+        <div style="background: rgba(255,0,0,0.1); border: 1px solid #ff3333; padding: 15px; margin: 20px 0; box-shadow: 0 0 10px rgba(255,0,0,0.5);">
+            <p style="margin: 0; color: #ff3333; text-shadow: 0 0 3px #ff3333;"><b>WARNING:</b> System integrity failing. <br> 
+            Software bugs are corrupting your sectors. <br>
+            Initialize defensive protocols immediately.</p>
         </div>
+
+        <p style="text-align:center">> SELECT HARDWARE TO OVERRIDE:</p>
+        
+        <div style="display: flex; gap: 15px; margin-top: 10px;">
+            <button class="terminal-btn" onclick="startGame('laptop')">
+                [ LAPTOP_MDL_4 ]<br>Standard Mobile
+            </button>
+            <button class="terminal-btn" onclick="startGame('desktop')">
+                [ TOWER_SVR_X ]<br>High Power Rig
+            </button>
+            <button class="terminal-btn" onclick="startGame('phone')">
+                [ PHONE_OS_9 ]<br>Touch Interface
+            </button>
+        </div>
+
+        <p style="font-size: 12px; margin-top: 30px; opacity: 0.6;">System.Thread.Abort(): Memory Overflow at 0x0045F</p>
     </div>
 
     <div id="upgrade-modal" class="modal hidden">
@@ -123,6 +208,13 @@
     </div>
 
     <script>
+        // Generate Hacker Background Text (Increased loop to fill the scrolling area)
+        let bgText = "";
+        for (let i = 0; i < 150; i++) {
+            bgText += "01010111 01001000 01001111 01000001 01001101 01001001 00001010 RUN root.exe... ACCESS_DENIED... BYPASSING... IP_TRACKED: 192.168.1.104... DOWNLOADING_CORE_FILES... ";
+        }
+        document.getElementById('hacker-bg').innerText = bgText;
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -136,7 +228,6 @@
         let joystick = { active: false, ox: 0, oy: 0, x: 0, y: 0, dx: 0, dy: 0 };
         const maxJoyDist = 50;
 
-        // Removed 'multitarget' from the base pool so it can be a Level 9 exclusive
         const UPGRADE_POOL = [
             { id: 'cpu', name: "CPU Overclock", desc: "Fire faster", icon: "⚙️", apply: (p) => p.stats.fireDelay *= 0.8 },
             { id: 'ram', name: "DDR5 RAM", desc: "Move faster", icon: "🖴", apply: (p) => p.stats.speed += 0.8 },
@@ -145,7 +236,10 @@
             { id: 'multicore', name: "Multi-Core", desc: "Extra data stream", icon: "🧬", apply: (p) => p.stats.multishot += 1 },
             { id: 'wifi', name: "Wi-Fi Antenna", desc: "Increase range", icon: "📡", apply: (p) => p.stats.projLife += 200 },
             { id: 'cooling', name: "Liquid Cooling", desc: "Bullets fly faster", icon: "❄️", apply: (p) => p.stats.projSpeed += 2 },
-            { id: 'battery', name: "Power Supply", desc: "Massive heal", icon: "🔋", apply: (p) => p.mb = p.maxMb }
+            { id: 'battery', name: "Power Supply", desc: "Massive heal", icon: "🔋", apply: (p) => p.mb = p.maxMb },
+            { id: 'regen', name: "Auto-Repair", desc: "Passive healing", icon: "🔧", apply: (p) => p.stats.regen = (p.stats.regen || 0) + 5 },
+            { id: 'firewall', name: "Firewall", desc: "-25% dmg taken", icon: "🛡️", apply: (p) => p.stats.armor = (p.stats.armor || 1) * 0.75 },
+            { id: 'overvolt', name: "Overvolt", desc: "Double Damage", icon: "⚡", apply: (p) => p.stats.damage *= 2 }
         ];
 
         function resize() {
@@ -162,7 +256,7 @@
 
         // Touch Controls for Mobile Devices
         canvas.addEventListener('touchstart', e => {
-            if (currentDevice === 'laptop') return;
+            if (currentDevice === 'laptop' || currentDevice === 'desktop') return;
             e.preventDefault();
             joystick.active = true;
             joystick.ox = e.touches[0].clientX;
@@ -195,8 +289,8 @@
                 this.w = 30; this.h = 40;
                 this.maxMb = 100; this.mb = 100;
                 this.level = 1; 
-                this.waveMax = 2; // Track wave progress
-                // projLife is the lifespan of the bullet in ms. 250 is very small.
+                this.waveMax = 2; // Track wave max points
+                this.waveProgress = 0; // Track current wave progress points
                 this.stats = { speed: 3.5, fireDelay: 450, damage: 1, projSpeed: 7, projSize: 4, multishot: 1, projLife: 250, maxTargets: 1 };
                 this.shotTimer = 0; this.invuln = 0;
             }
@@ -217,13 +311,18 @@
                 this.y = Math.max(20, Math.min(height - 20, this.y + dy * this.stats.speed));
                 if (this.invuln > 0) this.invuln -= dt;
                 
+                // Passive regen
+                if (this.stats.regen) {
+                    this.mb = Math.min(this.maxMb, this.mb + (this.stats.regen * dt / 1000));
+                }
+                
                 this.shotTimer += dt;
 
                 // Calculate current range limit based on bullet speed and life
                 let currentRange = (this.stats.projLife / 16) * this.stats.projSpeed;
                 
                 // Only find bugs that are inside the range
-                let targetsInRange = enemies.filter(e => Math.hypot(e.x - this.x, e.y - this.y) <= currentRange + 20);
+                let targetsInRange = enemies.filter(e => !e.dead && Math.hypot(e.x - this.x, e.y - this.y) <= currentRange + 20);
 
                 if (this.shotTimer >= this.stats.fireDelay && targetsInRange.length > 0) { 
                     this.fire(targetsInRange); 
@@ -264,18 +363,19 @@
                 if (this.invuln > 0 && Math.floor(Date.now() / 100) % 2) ctx.globalAlpha = 0.3;
                 
                 // Draw Device Graphic based on selection
-                if (currentDevice === 'laptop') {
+                if (currentDevice === 'desktop') {
+                    ctx.fillStyle = "#333"; ctx.fillRect(-15, -20, 30, 40); // Case
+                    ctx.fillStyle = "#111"; ctx.fillRect(-12, -17, 24, 5); // CD Drive
+                    ctx.fillStyle = "#111"; ctx.fillRect(-12, 10, 24, 8); // Vent
+                    ctx.fillStyle = "#00ffcc"; ctx.beginPath(); ctx.arc(8, 2, 2, 0, 7); ctx.fill(); // Power LED
+                } else if (currentDevice === 'laptop') {
                     ctx.fillStyle = "#777"; ctx.fillRect(-15, -10, 30, 20); // base
                     ctx.fillStyle = "#555"; ctx.fillRect(-15, -15, 30, 5);  // screen top
                     ctx.fillStyle = "#00ffcc"; ctx.fillRect(-10, -5, 20, 10); // keyboard glow
-                } else if (currentDevice === 'ipad') {
+                } else if (currentDevice === 'ipad' || currentDevice === 'phone') { // tablet or phone
                     ctx.fillStyle = "#222"; ctx.fillRect(-12, -18, 24, 36); // case
                     ctx.fillStyle = "#111"; ctx.fillRect(-10, -15, 20, 30); // screen
                     ctx.fillStyle = "#00ffcc"; ctx.beginPath(); ctx.arc(0, 16, 1.5, 0, Math.PI*2); ctx.fill(); // home button
-                } else { // phone
-                    ctx.fillStyle = "#333"; ctx.fillRect(-8, -15, 16, 30); // case
-                    ctx.fillStyle = "#111"; ctx.fillRect(-6, -12, 12, 24); // screen
-                    ctx.fillStyle = "#00ffcc"; ctx.beginPath(); ctx.arc(0, 13, 1, 0, Math.PI*2); ctx.fill(); // home button
                 }
 
                 ctx.restore(); ctx.globalAlpha = 1;
@@ -296,17 +396,22 @@
         }
 
         class Bug {
-            constructor() {
+            constructor(type = 'normal') {
                 const side = Math.floor(Math.random() * 4);
-                if (side === 0) { this.x = Math.random() * width; this.y = -30; }
-                else if (side === 1) { this.x = width + 30; this.y = Math.random() * height; }
-                else if (side === 2) { this.x = Math.random() * width; this.y = height + 30; }
-                else { this.x = -30; this.y = Math.random() * height; }
+                // Push spawn distance further out to accommodate double sized bugs
+                if (side === 0) { this.x = Math.random() * width; this.y = -50; }
+                else if (side === 1) { this.x = width + 50; this.y = Math.random() * height; }
+                else if (side === 2) { this.x = Math.random() * width; this.y = height + 50; }
+                else { this.x = -50; this.y = Math.random() * height; }
                 
                 let lvl = typeof player !== 'undefined' ? player.level : 1;
+                this.type = type;
+                this.scale = type === 'big' ? 2 : 1;
+                this.dead = false;
                 
                 // Health slowly scales up as levels increase
                 this.maxHp = 4 + Math.floor(lvl / 3); 
+                if (this.type === 'big') this.maxHp = Math.floor(this.maxHp * 2.5);
                 this.hp = this.maxHp;
 
                 // Slow down bugs heavily for the first 2 levels
@@ -315,6 +420,9 @@
                 } else {
                     this.speed = 0.8 + Math.random() * 0.4 + lvl * 0.05;
                 }
+                if (this.type === 'big') this.speed *= 0.6; // Big bugs are even slower
+                
+                this.xpValue = this.type === 'big' ? 2.5 : 1; // Used for wave progress
             }
             update() {
                 let a = Math.atan2(player.y - this.y, player.x - this.x);
@@ -324,22 +432,27 @@
                 ctx.save(); ctx.translate(this.x, this.y);
 
                 // Draw Health Bar (Stays horizontal)
+                let w = 20 * this.scale;
+                let h = 4 * this.scale;
+                let yOff = -20 * this.scale;
                 ctx.fillStyle = "rgba(255, 51, 51, 0.5)";
-                ctx.fillRect(-10, -20, 20, 4);
+                ctx.fillRect(-w/2, yOff, w, h);
                 ctx.fillStyle = "#00ffcc";
-                ctx.fillRect(-10, -20, 20 * (this.hp / this.maxHp), 4);
+                ctx.fillRect(-w/2, yOff, w * (Math.max(0, this.hp) / this.maxHp), h);
 
                 // Rotate for the body
                 ctx.rotate(Math.atan2(player.y - this.y, player.x - this.x) + Math.PI/2);
-                ctx.fillStyle = "#a33";
+                ctx.fillStyle = this.type === 'big' ? "#822" : "#a33";
                 // Bug Body
-                ctx.beginPath(); ctx.ellipse(0, 0, 8, 12, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(0, 0, 8 * this.scale, 12 * this.scale, 0, 0, Math.PI*2); ctx.fill();
                 // Animated Legs
-                ctx.strokeStyle = "#a33"; ctx.lineWidth = 2;
+                ctx.strokeStyle = this.type === 'big' ? "#822" : "#a33"; 
+                ctx.lineWidth = 2 * this.scale;
                 for(let i=0; i<3; i++) {
-                    let off = Math.sin(Date.now()*0.01 + i) * 5;
-                    ctx.beginPath(); ctx.moveTo(-8, -5 + i*6); ctx.lineTo(-15, -8 + i*6 + off); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(8, -5 + i*6); ctx.lineTo(15, -8 + i*6 - off); ctx.stroke();
+                    let off = Math.sin(Date.now()*0.01 + i) * 5 * this.scale;
+                    let legY = -5 * this.scale + i * 6 * this.scale;
+                    ctx.beginPath(); ctx.moveTo(-8 * this.scale, legY); ctx.lineTo(-15 * this.scale, legY - 3 * this.scale + off); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(8 * this.scale, legY); ctx.lineTo(15 * this.scale, legY - 3 * this.scale - off); ctx.stroke();
                 }
                 ctx.restore();
             }
@@ -355,10 +468,15 @@
 
         function startWave() {
             let numBugs = player.level === 1 ? 2 : player.level * 3;
-            player.waveMax = numBugs;
             enemies = [];
+            player.waveProgress = 0;
+            player.waveMax = 0;
             for(let i = 0; i < numBugs; i++) {
-                enemies.push(new Bug());
+                // Introduce big bugs starting level 3 (15% chance)
+                let type = (player.level >= 3 && Math.random() < 0.15) ? 'big' : 'normal';
+                let b = new Bug(type);
+                enemies.push(b);
+                player.waveMax += b.xpValue;
             }
             updateHUD();
         }
@@ -368,7 +486,7 @@
             document.getElementById('mb-bar').style.width = (player.mb / player.maxMb * 100) + "%";
             document.getElementById('level-text').innerText = player.level <= 20 ? player.level : "MAX";
             
-            let xpPercent = player.waveMax ? ((player.waveMax - enemies.length) / player.waveMax * 100) : 0;
+            let xpPercent = player.waveMax ? (player.waveProgress / player.waveMax * 100) : 0;
             document.getElementById('xp-bar').style.width = xpPercent + "%";
         }
 
@@ -426,8 +544,13 @@
 
         function gameLoop() {
             if (!isPlaying || isPaused) { requestAnimationFrame(gameLoop); return; }
-            ctx.fillStyle = "#050505"; ctx.fillRect(0,0,width,height);
+            
+            // Replaced fillRect with clearRect so the background data stream shows through
+            ctx.clearRect(0,0,width,height);
+            
             frameCount++; gameTime += 16;
+            
+            if (player.stats.regen && frameCount % 30 === 0) updateHUD();
 
             player.update(16); player.draw();
             projectiles.forEach((p, i) => { 
@@ -436,23 +559,36 @@
             });
 
             enemies.forEach((e, i) => {
+                if (e.dead) return;
                 e.update(); e.draw();
-                if (Math.hypot(e.x - player.x, e.y - player.y) < 25) {
-                    player.mb -= 10; player.invuln = 1000; updateHUD(); enemies.splice(i, 1);
+                
+                let colRadius = e.type === 'big' ? 40 : 25;
+                if (Math.hypot(e.x - player.x, e.y - player.y) < colRadius) {
+                    let dmg = 10 * (player.stats.armor || 1);
+                    player.mb -= dmg; player.invuln = 1000; 
+                    player.waveProgress += e.xpValue; // Count towards progress even if it hits you
+                    e.dead = true;
+                    updateHUD(); 
                     if (player.mb <= 0) { isPlaying = false; document.getElementById('game-over-modal').classList.remove('hidden'); }
                 }
+                
                 projectiles.forEach((p, pi) => {
-                    if (Math.hypot(e.x - p.x, e.y - p.y) < 20) {
+                    if (e.dead) return;
+                    let projHitRadius = e.type === 'big' ? 35 : 20;
+                    if (Math.hypot(e.x - p.x, e.y - p.y) < projHitRadius) {
                         e.hp -= p.dmg; projectiles.splice(pi, 1);
                         if (e.hp <= 0) {
-                            if (Math.random() < 0.2) pickups.push(new Pickup(e.x, e.y, 'bin'));
-                            enemies.splice(i, 1);
-                            totalBugsKilled++;
+                            if (Math.random() < (e.type === 'big' ? 0.5 : 0.2)) pickups.push(new Pickup(e.x, e.y, 'bin'));
+                            player.waveProgress += e.xpValue;
+                            e.dead = true;
+                            totalBugsKilled += (e.type === 'big' ? 2 : 1);
                             updateHUD(); // Update wave progress bar
                         }
                     }
                 });
             });
+            // Safely remove dead bugs after all checks are done
+            enemies = enemies.filter(e => !e.dead);
 
             // Trigger next level if wave is cleared
             if (enemies.length === 0 && isPlaying && !isPaused) {
@@ -489,10 +625,15 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // Must be defined in the global scope so inline onclick handles can find it
         function startGame(device) {
             currentDevice = device;
             totalBugsKilled = 0;
-            isPlaying = true; player = new Player(); enemies = []; projectiles = []; pickups = [];
+            isPlaying = true; 
+            player = new Player(); 
+            enemies = []; 
+            projectiles = []; 
+            pickups = [];
             document.getElementById('start-modal').classList.add('hidden'); 
             startWave(); 
             gameLoop(); 
