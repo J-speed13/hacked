@@ -34,7 +34,7 @@
             backdrop-filter: blur(8px); z-index: 10;
         }
         .hidden { display: none !important; }
-        h1 { font-size: 2.5rem; text-shadow: 0 0 15px #00ffcc; text-transform: uppercase; margin-bottom: 5px; }
+        h1 { font-size: 2.5rem; text-shadow: 0 0 15px #00ffcc; text-transform: uppercase; margin-bottom: 5px; text-align: center; }
         button {
             background: transparent; color: #00ffcc; border: 2px solid #00ffcc;
             padding: 15px 30px; font-size: 1.2rem; cursor: pointer; transition: 0.2s;
@@ -125,7 +125,7 @@
 </head>
 <body>
 
-    <!-- Moved Hacker BG outside the modal so it's always visible -->
+    <!-- Hacker BG outside the modal so it's always visible -->
     <div class="hacker-bg-text" id="hacker-bg"></div>
 
     <canvas id="gameCanvas"></canvas>
@@ -171,8 +171,8 @@
     </div>
 
     <div id="upgrade-modal" class="modal hidden">
-        <h1 style="color: #ffcc00;">COMPONENT UPGRADE</h1>
-        <div style="display:flex; gap:20px; margin-top:20px;" id="upgrades-container"></div>
+        <h1 id="upgrade-title" style="color: #ffcc00;">COMPONENT UPGRADE</h1>
+        <div style="display:flex; gap:20px; margin-top:20px; flex-wrap: wrap; justify-content: center;" id="upgrades-container"></div>
     </div>
 
     <div id="game-over-modal" class="modal bsod hidden">
@@ -219,7 +219,7 @@
         const ctx = canvas.getContext('2d');
 
         let width, height, player, isPlaying = false, isPaused = false, lastTime = 0, gameTime = 0;
-        let projectiles = [], enemies = [], pickups = [], particles = [], frameCount = 0;
+        let projectiles = [], enemies = [], pickups = [], helpers = [], frameCount = 0;
         let totalBugsKilled = 0;
         const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
         const mouse = { x: 0, y: 0 };
@@ -240,6 +240,14 @@
             { id: 'regen', name: "Auto-Repair", desc: "Passive healing", icon: "🔧", apply: (p) => p.stats.regen = (p.stats.regen || 0) + 5 },
             { id: 'firewall', name: "Firewall", desc: "-25% dmg taken", icon: "🛡️", apply: (p) => p.stats.armor = (p.stats.armor || 1) * 0.75 },
             { id: 'overvolt', name: "Overvolt", desc: "Double Damage", icon: "⚡", apply: (p) => p.stats.damage *= 2 }
+        ];
+
+        // Advanced Upgrades that unlock in Series 2 (Level > 20)
+        const SERIES_2_UPGRADES = [
+            { id: 'qcpu', name: "Quantum CPU", desc: "Extreme fire rate", icon: "🌌", apply: (p) => p.stats.fireDelay *= 0.6 },
+            { id: 'plasma', name: "Plasma Rounds", desc: "Huge damage boost", icon: "🔥", apply: (p) => p.stats.damage += 3 },
+            { id: 'nano', name: "Nanobot Armor", desc: "Huge armor & regen", icon: "🛡️", apply: (p) => { p.stats.armor = (p.stats.armor || 1) * 0.5; p.stats.regen = (p.stats.regen || 0) + 10; } },
+            { id: 'laser', name: "Laser Targeting", desc: "Projectiles fly faster", icon: "☄️", apply: (p) => p.stats.projSpeed += 5 }
         ];
 
         function resize() {
@@ -282,6 +290,45 @@
                 joystick.dx = 0; joystick.dy = 0;
             }
         });
+
+        class AIHelper {
+            constructor() {
+                this.angle = Math.random() * Math.PI * 2;
+                this.orbitRadius = 60 + Math.random() * 20;
+                this.shotTimer = 0;
+                this.x = 0; this.y = 0;
+            }
+            update(dt) {
+                this.angle += 0.03;
+                this.x = player.x + Math.cos(this.angle) * this.orbitRadius;
+                this.y = player.y + Math.sin(this.angle) * this.orbitRadius;
+                this.shotTimer += dt;
+                
+                if (this.shotTimer > 600) {
+                    // Find closest bug
+                    let closest = null; let minDist = Infinity;
+                    enemies.forEach(e => {
+                        if (e.dead) return;
+                        let d = Math.hypot(e.x - this.x, e.y - this.y);
+                        if (d < minDist) { minDist = d; closest = e; }
+                    });
+                    
+                    if (closest && minDist < 400) {
+                        let a = Math.atan2(closest.y - this.y, closest.x - this.x);
+                        projectiles.push(new Projectile(this.x, this.y, a, { projSpeed: 10, damage: 3, projSize: 4, projLife: 400 }, true));
+                        this.shotTimer = 0;
+                    }
+                }
+            }
+            draw() {
+                ctx.save(); ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle * 2);
+                ctx.fillStyle = "#ffcc00"; // Gold drone color
+                ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-8, 8); ctx.lineTo(-8, -8); ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = "#fff"; ctx.stroke();
+                ctx.restore();
+            }
+        }
 
         class Player {
             constructor() {
@@ -383,13 +430,15 @@
         }
 
         class Projectile {
-            constructor(x, y, a, s) {
+            constructor(x, y, a, s, isAI = false) {
                 this.x = x; this.y = y; this.vx = Math.cos(a) * s.projSpeed; this.vy = Math.sin(a) * s.projSpeed;
                 this.dmg = s.damage; this.sz = s.projSize; this.life = s.projLife;
+                this.isAI = isAI; // Just for visuals
             }
             update(dt) { this.x += this.vx; this.y += this.vy; this.life -= dt; }
             draw() {
-                ctx.fillStyle = "#00ffcc"; ctx.shadowBlur = 10; ctx.shadowColor = "#00ffcc";
+                ctx.fillStyle = this.isAI ? "#ffcc00" : "#00ffcc"; 
+                ctx.shadowBlur = 10; ctx.shadowColor = this.isAI ? "#ffcc00" : "#00ffcc";
                 ctx.beginPath(); ctx.arc(this.x, this.y, this.sz, 0, Math.PI*2); ctx.fill();
                 ctx.shadowBlur = 0;
             }
@@ -405,22 +454,25 @@
                 else { this.x = -50; this.y = Math.random() * height; }
                 
                 let lvl = typeof player !== 'undefined' ? player.level : 1;
+                let isSeries2 = lvl > 20;
+
                 this.type = type;
                 this.scale = type === 'big' ? 2 : 1;
                 this.dead = false;
                 
-                // Health slowly scales up as levels increase
-                this.maxHp = 4 + Math.floor(lvl / 3); 
+                // Health scales up significantly more in Series 2
+                this.maxHp = 4 + Math.floor(lvl / 3) + (isSeries2 ? 15 : 0); 
                 if (this.type === 'big') this.maxHp = Math.floor(this.maxHp * 2.5);
                 this.hp = this.maxHp;
 
-                // Slow down bugs heavily for the first 2 levels
+                // Slow down bugs heavily for the first 2 levels, then they get faster
                 if (lvl <= 2) {
                     this.speed = 0.4 + Math.random() * 0.3; 
                 } else {
                     this.speed = 0.8 + Math.random() * 0.4 + lvl * 0.05;
                 }
-                if (this.type === 'big') this.speed *= 0.6; // Big bugs are even slower
+                if (isSeries2) this.speed += 0.5; // Series 2 speed bump
+                if (this.type === 'big') this.speed *= 0.6; // Big bugs are always slower
                 
                 this.xpValue = this.type === 'big' ? 2.5 : 1; // Used for wave progress
             }
@@ -431,22 +483,32 @@
             draw() {
                 ctx.save(); ctx.translate(this.x, this.y);
 
+                let isSeries2 = typeof player !== 'undefined' && player.level > 20;
+
                 // Draw Health Bar (Stays horizontal)
                 let w = 20 * this.scale;
                 let h = 4 * this.scale;
                 let yOff = -20 * this.scale;
                 ctx.fillStyle = "rgba(255, 51, 51, 0.5)";
                 ctx.fillRect(-w/2, yOff, w, h);
-                ctx.fillStyle = "#00ffcc";
+                ctx.fillStyle = isSeries2 ? "#33ff33" : "#00ffcc";
                 ctx.fillRect(-w/2, yOff, w * (Math.max(0, this.hp) / this.maxHp), h);
 
                 // Rotate for the body
                 ctx.rotate(Math.atan2(player.y - this.y, player.x - this.x) + Math.PI/2);
-                ctx.fillStyle = this.type === 'big' ? "#822" : "#a33";
+                
+                // Colors change if we are in Series 2 (Green bugs)
+                if (isSeries2) {
+                    ctx.fillStyle = this.type === 'big' ? "#282" : "#3a3";
+                    ctx.strokeStyle = this.type === 'big' ? "#282" : "#3a3";
+                } else {
+                    ctx.fillStyle = this.type === 'big' ? "#822" : "#a33";
+                    ctx.strokeStyle = this.type === 'big' ? "#822" : "#a33"; 
+                }
+
                 // Bug Body
                 ctx.beginPath(); ctx.ellipse(0, 0, 8 * this.scale, 12 * this.scale, 0, 0, Math.PI*2); ctx.fill();
                 // Animated Legs
-                ctx.strokeStyle = this.type === 'big' ? "#822" : "#a33"; 
                 ctx.lineWidth = 2 * this.scale;
                 for(let i=0; i<3; i++) {
                     let off = Math.sin(Date.now()*0.01 + i) * 5 * this.scale;
@@ -467,13 +529,18 @@
         }
 
         function startWave() {
-            let numBugs = player.level === 1 ? 2 : player.level * 3;
+            let isSeries2 = player.level > 20;
+            // Less extreme scaling to prevent browser crash, but still intense
+            let numBugs = player.level * 2 + (isSeries2 ? 10 : 0);
+            
             enemies = [];
             player.waveProgress = 0;
             player.waveMax = 0;
+            
             for(let i = 0; i < numBugs; i++) {
-                // Introduce big bugs starting level 3 (15% chance)
-                let type = (player.level >= 3 && Math.random() < 0.15) ? 'big' : 'normal';
+                // Introduce big bugs starting level 3, much higher chance in Series 2
+                let bigBugChance = isSeries2 ? 0.35 : 0.15;
+                let type = (player.level >= 3 && Math.random() < bigBugChance) ? 'big' : 'normal';
                 let b = new Bug(type);
                 enemies.push(b);
                 player.waveMax += b.xpValue;
@@ -484,7 +551,9 @@
         function updateHUD() {
             document.getElementById('mb-text').innerText = `${Math.ceil(player.mb)} / ${player.maxMb} MB`;
             document.getElementById('mb-bar').style.width = (player.mb / player.maxMb * 100) + "%";
-            document.getElementById('level-text').innerText = player.level <= 20 ? player.level : "MAX";
+            
+            let displayLevel = player.level > 40 ? "MAX" : (player.level > 20 ? `S2-${player.level-20}` : player.level);
+            document.getElementById('level-text').innerText = displayLevel;
             
             let xpPercent = player.waveMax ? (player.waveProgress / player.waveMax * 100) : 0;
             document.getElementById('xp-bar').style.width = xpPercent + "%";
@@ -494,27 +563,56 @@
             isPaused = true; 
             document.getElementById('upgrade-modal').classList.remove('hidden');
             const container = document.getElementById('upgrades-container');
+            const title = document.getElementById('upgrade-title');
             container.innerHTML = '';
             
             let choices = [];
 
-            // Level 9 Milestone
+            // Reset Title Styling Defaults
+            title.style.color = "#ffcc00";
+
+            // Level Milestones
             if (player.level === 9) {
-                document.querySelector('#upgrade-modal h1').innerText = "LEVEL 9 MILESTONE REACHED";
+                title.innerText = "LEVEL 9 MILESTONE REACHED";
                 choices = [{ id: 'multitarget', name: "Targeting AI", desc: "Locks onto multiple bugs", icon: "🎯", apply: (p) => p.stats.maxTargets += 1 }];
+            } else if (player.level === 21) {
+                title.innerText = "WARNING: ENTERING SERIES 2";
+                title.style.color = "#33ff33"; // Green text for Series 2 transition
+                choices = [{ 
+                    id: 'series2_start', 
+                    name: "Deep Web Access", 
+                    desc: "Restore Systems. Prepare for Green Bugs.", 
+                    icon: "🌐", 
+                    apply: (p) => { p.mb = p.maxMb; } 
+                }];
+            } else if (player.level === 30 || player.level === 40) {
+                title.innerText = `LEVEL ${player.level} AI PROTOCOL REACHED`;
+                choices = [{ 
+                    id: 'ai_helper', 
+                    name: "Deploy AI Helper", 
+                    desc: "An autonomous combat drone to assist you", 
+                    icon: "🤖", 
+                    apply: (p) => { helpers.push(new AIHelper()); } 
+                }];
             } else {
-                document.querySelector('#upgrade-modal h1').innerText = "COMPONENT UPGRADE";
+                title.innerText = "COMPONENT UPGRADE";
                 let currentPool = [...UPGRADE_POOL];
-                // Allow them to find *more* targets after level 9
+                
+                // Keep allowing extra targets after level 9
                 if (player.level > 9) {
                     currentPool.push({ id: 'multitarget_plus', name: "Advanced AI", desc: "+1 Target Lock", icon: "🎯", apply: (p) => p.stats.maxTargets += 1 });
                 }
+                // Add powerful Series 2 Upgrades if > 20
+                if (player.level > 20) {
+                    currentPool = currentPool.concat(SERIES_2_UPGRADES);
+                }
+
                 choices = currentPool.sort(()=>.5-Math.random()).slice(0, 3);
             }
 
             choices.forEach(u => {
                 let div = document.createElement('div'); div.className = 'upgrade-card';
-                div.innerHTML = `<div>${u.icon}</div><b>${u.name}</b><p>${u.desc}</p>`;
+                div.innerHTML = `<div>${u.icon}</div><b>${u.name}</b><p style="font-size:14px;">${u.desc}</p>`;
                 div.onclick = () => { 
                     u.apply(player); 
                     isPaused = false; 
@@ -532,7 +630,9 @@
             
             const bin = document.getElementById('bin-contents');
             bin.innerHTML = '';
-            for (let i = 0; i < totalBugsKilled; i++) {
+            // Cap visual bugs in the bin to prevent lag on huge numbers
+            let bugsToDraw = Math.min(totalBugsKilled, 300);
+            for (let i = 0; i < bugsToDraw; i++) {
                 let bugIcon = document.createElement('div');
                 bugIcon.style.fontSize = '24px';
                 bugIcon.style.width = '30px';
@@ -553,6 +653,12 @@
             if (player.stats.regen && frameCount % 30 === 0) updateHUD();
 
             player.update(16); player.draw();
+            
+            // Update and draw AI Helpers
+            helpers.forEach(h => {
+                h.update(16); h.draw();
+            });
+
             projectiles.forEach((p, i) => { 
                 p.update(16); p.draw(); 
                 if (p.life <= 0) projectiles.splice(i, 1); 
@@ -593,7 +699,7 @@
             // Trigger next level if wave is cleared
             if (enemies.length === 0 && isPlaying && !isPaused) {
                 player.level++;
-                if (player.level > 20) {
+                if (player.level > 40) {
                     triggerWin();
                 } else {
                     triggerLevelUp();
@@ -634,6 +740,7 @@
             enemies = []; 
             projectiles = []; 
             pickups = [];
+            helpers = []; // Reset helpers
             document.getElementById('start-modal').classList.add('hidden'); 
             startWave(); 
             gameLoop(); 
